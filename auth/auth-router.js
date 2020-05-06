@@ -39,4 +39,9 @@ router.post("/login", async (req, res, next) => {
 	}
 })
 
+router.get("/logout", restrict(), (req, res, next) => {
+	// destroy the session here
+	res.end()
+})
+
 module.exports = router
