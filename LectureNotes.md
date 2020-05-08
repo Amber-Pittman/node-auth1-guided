@@ -106,3 +106,123 @@ In the middleware folder, there is a restrict file. It validates the user and pa
         * **_Cookie_** is a mechanism for passing in the token, identifying that session back and forth. 
 
         * The server gives the session ID and the cookie to the app so that the app can then resend it back to the server with the next request. The server will then use that to look the session up and validate that the user is indeed logged in and that their login is still valid. 
+
+
+## Code Along!
+
+1. `npm install`
+
+2. Let's create a different router that will allow us to manage all of our authentication methods.
+
+    * `mkdir auth` and then `touch auth-router.js`.
+
+3. In order to put our login method in this file, we need to have bcryptJS enabled. Go into the `users-router.js` file and copy it into the `auth-router` file. 
+
+    * We need Express and the users-model file. 
+
+        * Make sure you update the path of users-router since it's in a different folder. 
+
+4. Instead of GET, we will create a POST method that will allow us to register a user. Inside the method create a variable to get the body. In the body, we will pass in the username and the password (later).
+
+5. In order for us to create the hash for the password - we're going to want to store that along with the user - we need to bring in bcrypt.
+
+6. Bcrypt has 2 methods using hash.    
+
+    * The `.hashSync` method is synchronous. The flow of execution of our code is going to stop right on hashSync until that hash is finished creating.
+    
+    * The `.hash` method is asynchronous algorithm and it returns a promise, where we would have to create a .then handle once it's finished hashing. 
+
+7. Once we have the Users object, then we can create a hash. We can do that be using the bcrypt module method called hashSync. 
+
+    * We're going to hash a password object that is passed in. 
+    
+    * Then we're going to pass in a number. That number is referred to the number of "rounds." Rounds instruct bcrypt that we want to not only hash the password, but also hash the hash of that password.
+    
+    * Then it tells it to hash the hash of that hash. And then again.
+
+    * BUT! We're not doing it just 8 times. We're doing it 2^8 times (256 times).
+
+        * This is how we control computational difficulty. The bigger we make that number, the longer it takes to generate that hash. We can fine-tune this for our own system as well as making it difficult for others to use the same algorithm. 
+        
+        * Although they might know we're using bcrypt, in order for them to generate the correct hash for the password we hashed, then they're going to have to run it through that algorithm as many times as we did in order for it to come up properly.
+
+        * We can make it a large enough number that we can make it really troublesome for rainbow table creators.  At the same time we want to make it small enough that we don't overtax our systems and it's not too difficult an experience for our users. 
+
+        
+    ```
+    const express = require("express")
+    const bcrypt = require("bcryptjs")
+    const Users = require("../users/users-model")
+
+    const router = express.Router()
+
+    router.post("/register", (req, res, next) => {
+        const user = req.body
+        const hash = bcrypt.hashSync(user.password, 8)
+
+        Users.find()
+            .then(users => {
+                res.json(users)
+            })
+            //.catch(err => res.send(err))
+            .catch(next)
+    })
+
+    module.exports = router
+    `
+
+8. If you look in the users-model, we have a method called `add(user)` that takes the username and a password. Back in the auth-router file, get rid of the Users.find method. We want to use the add method on Users instead. 
+
+    * The problem with this if we left it like it is, without anything else, what we're adding to the database is the username and the password. 
+
+    * Instead, we want to replace the password with our new hash before we save it to the database. That way, when it is saved to the DB, it is the hash that's saved and not the password.
+
+9. Run the server. Create a POST request in Insomnia `POST localhost:5000/api/auth/register`. For the JSON body, use `{"username": "username", "password": "password"}`. 
+
+    * When you run the request, you will see in the Preview a `saved` object with an ID, the username, and a hash in place of the actual password.
+
+    * To get technical, it's actually a string with the hash placed somewhere inside that string.
+
+    * It shows:
+
+        * Our version
+
+        * The cost parameter
+
+        * The salt (we'll discuss what this is later)
+
+        * And the hash itself
+
+10. When we get the data from the request (the user req.body), we generate a hash using bcrypt (hash bcrypt.hashSync(...)) and passing in the password the user gave us and then passed in a cost algorithm (8). 
+
+    * Normally, the cost algorithm would be something we'd probably retrieve from our environments. 
+
+
+
+    ```
+    const express = require("express")
+    const bcrypt = require("bcryptjs")
+    const Users = require("../users/users-model")
+
+    const router = express.Router()
+
+    router.post("/register", (req, res, next) => {
+        const user = req.body
+        const hash = bcrypt.hashSync(user.password, 8)
+
+        user.password = hash
+
+        Users.add(user)
+            .then(saved => {
+                res.status(200).json({saved})
+            })
+            .catch(err => {
+                res.status(500)json({
+                    message: "Problem with the DB", error: err
+                })
+            })
+    })
+
+    module.exports = router
+    ```
+

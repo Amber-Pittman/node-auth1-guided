@@ -1,53 +1,84 @@
 const express = require("express")
-const bcrypt = require("bcryptjs")
-const Users = require("../users/users-model")
+    const bcrypt = require("bcryptjs")
+    const Users = require("../users/users-model")
 
-const router = express.Router()
+    const router = express.Router()
 
-router.post("/register", async (req, res, next) => {
-	try {
-		const { username } = req.body
-		const user = await Users.findBy({ username }).first()
+    router.post("/register", (req, res, next) => {
+        const user = req.body
+        const hash = bcrypt.hashSync(user.password, 8)
 
-		if (user) {
-			return res.status(409).json({
-				message: "Username is already taken",
-			})
-		}
+        user.password = hash
 
-		res.status(201).json(await Users.add(req.body))
-	} catch(err) {
-		next(err)
-	}
-})
+        Users.add(user)
+            .then(saved => {
+                res.status(200).json({saved})
+            })
+            .catch(err => {
+                res.status(500)json({
+                    message: "Problem with the DB", error: err
+                })
+            })
+    })
 
-router.post("/login", async (req, res, next) => {
-	try {
-		const { username, password } = req.body
-		const user = await Users.findBy({ username }).first()
+    module.exports = router
 
-		// since bcrypt hashes generate different results due to the salting,
-		// we rely on the magic internals to compare hashes rather than doing it
-		// manually with "!=="
-		const passwordValid = await bcrypt.compare(password, user.password)
 
-		if (!user || !passwordValid) {
-			return res.status(401).json({
-				message: "Invalid Credentials",
-			})
-		}
 
-		res.json({
-			message: `Welcome ${user.username}!`,
-		})
-	} catch(err) {
-		next(err)
-	}
-})
 
-// router.get("/logout", restrict(), (req, res, next) => {
-// 	// destroy the session here
-// 	res.end()
+
+
+//////////////////// JASON'S VERSION ///////////////////////////
+// const express = require("express")
+// const bcrypt = require("bcryptjs")
+// const Users = require("../users/users-model")
+
+// const router = express.Router()
+
+// router.post("/register", async (req, res, next) => {
+// 	try {
+// 		const { username } = req.body
+// 		const user = await Users.findBy({ username }).first()
+
+// 		if (user) {
+// 			return res.status(409).json({
+// 				message: "Username is already taken",
+// 			})
+// 		}
+
+// 		res.status(201).json(await Users.add(req.body))
+// 	} catch(err) {
+// 		next(err)
+// 	}
 // })
 
-module.exports = router
+// router.post("/login", async (req, res, next) => {
+// 	try {
+// 		const { username, password } = req.body
+// 		const user = await Users.findBy({ username }).first()
+
+// 		// since bcrypt hashes generate different results due to the salting,
+// 		// we rely on the magic internals to compare hashes rather than doing it
+// 		// manually with "!=="
+// 		const passwordValid = await bcrypt.compare(password, user.password)
+
+// 		if (!user || !passwordValid) {
+// 			return res.status(401).json({
+// 				message: "Invalid Credentials",
+// 			})
+// 		}
+
+// 		res.json({
+// 			message: `Welcome ${user.username}!`,
+// 		})
+// 	} catch(err) {
+// 		next(err)
+// 	}
+// })
+
+// // router.get("/logout", restrict(), (req, res, next) => {
+// // 	// destroy the session here
+// // 	res.end()
+// // })
+
+// module.exports = router
