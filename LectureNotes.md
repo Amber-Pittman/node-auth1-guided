@@ -193,11 +193,15 @@ In the middleware folder, there is a restrict file. It validates the user and pa
 
         * And the hash itself
 
-10. When we get the data from the request (the user req.body), we generate a hash using bcrypt (hash bcrypt.hashSync(...)) and passing in the password the user gave us and then passed in a cost algorithm (8). 
+10. Recap:
 
-    * Normally, the cost algorithm would be something we'd probably retrieve from our environments. 
+    * When we get the data from the request (the user req.body), we generate a hash using bcrypt (hash bcrypt.hashSync(...)). 
+    
+    * Passed in the password the user gave us and then passed in a cost algorithm (8). 
 
+        * Normally, the cost algorithm would be something we'd probably retrieve from our environments rather than have anything hard-coded. 
 
+    * We're replacing the password that was passed in the user object with a hash (user.password = hash) and that is what we're saving to the database.
 
     ```
     const express = require("express")
@@ -206,7 +210,7 @@ In the middleware folder, there is a restrict file. It validates the user and pa
 
     const router = express.Router()
 
-    router.post("/register", (req, res, next) => {
+    router.post("/register", (req, res) => {
         const user = req.body
         const hash = bcrypt.hashSync(user.password, 8)
 
@@ -226,3 +230,53 @@ In the middleware folder, there is a restrict file. It validates the user and pa
     module.exports = router
     ```
 
+11. We need to create a login endpoint using POST since we're passing information in. 
+
+    * We're going to get the username and password from the body.
+
+    * We're going to use the username to do a data lookup in the database to see if that username exists. Pass in an object that contains the username property (it will be converted into a WHERE clause). If it does exist, we get the hash. 
+
+        * The .findBy method returns an array, as there could be more than one thing that matches our criteria. In our case, we only care about one. If there is more than one then that's a problem in our database; we'll need to add a constraint that says the username is unique and we'll need to look at cleaning that up.
+
+        * We'll assume for now that the user is found, then it's going to come back as the only element in an array. 
+
+    * We will destructure that array to get that object into a variable for us. 
+
+        * To do that, we will destructure it using this syntax on the array delimiters in parentheses because it's what's being returned to us.  `.then(([user]))`
+
+    * At this point we want to check to see if the user exists (defined). If it is defined, we are going to add to our test and call from bcrypt with compareSync. Right now, we're not generating a hash, we're comparing.
+
+        * What we're going to pass into compareSync is the password guess that the user sends us with the body and then the password value that comes from our database.
+
+        ```
+        Pick up video play at 43:09 to continue!!!
+        ```
+
+    * Then, we're going to use that password and that hash to confirm whether or not the password guess is the same as the original password. 
+
+    * 
+
+    ```
+    // auth-router.js
+
+    router.post("/login", (req, res) => {
+        const {username, password} = req.body
+
+        Users.findBy({username})        //lookup in the database
+            // Make comparison between PW guess and actual PW
+            .then(([user]) => {
+                if (user && bcrypt.compareSync(password, user.password))
+            }) 
+            .catch(err => {
+                res.status(500).json({
+                    message: "problem with the db", error: err
+                })
+            })
+    })
+
+    module.exports = router
+    ```
+
+
+
+Now, if we look at our method for retrieving users (look in the users-router), there's nothing in the get request that cares about whether or not the user is authenticated or logged in.
