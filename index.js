@@ -2,6 +2,7 @@ const express = require("express")
 const helmet = require("helmet")
 const cors = require("cors")
 const session = require("express-session")
+const restrict = require("./middleware/restrict")
 
 const authRouter = require("./auth/auth-router")
 const usersRouter = require("./users/users-router")
@@ -29,7 +30,7 @@ server.use(express.json())
 server.use(session(sessionConfig))
 
 server.use("/auth", authRouter)
-server.use("/users", usersRouter)
+server.use("/users", restrict, usersRouter)
 
 server.get("/", (req, res, next) => {
 	res.json({

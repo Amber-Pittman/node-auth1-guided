@@ -591,19 +591,56 @@ In the middleware folder, there is a restrict file. It validates the user and pa
             ```
             // index.js
             
-            // Make the Restrict Middleware Global
-            server.use((req, res, next) => {
-                if (req.session && req.session.user) {
-                    next()
-                } else {
-                    res.status(401).json({
-                        message: "Not logged in."
-                    })
-                }
-            })
+            const restrict = require("./middleware/restrict")
+
+            server.use("/users", restrict, usersRouter)
+            
             ```
 
 14. Logout Sessions
-```
-Video at 1:39:34
-```
+    
+    * One of the things you want to be aware of when logging out is the HTTP method DELETE. It's often used for logging out because delete is used for removing a session. It is totally acceptable to do that. 
+    
+    * Essentially, we don't have to pass anything in to logout we just need to pass along the cookie. That way, the system knows what session we're using to logging out of.
+
+    * We're going to use GET, as it doesn't really matter. In some instances, you're going to have multiple sessions and they have a sessions collection so it might make sense to delete. It really just depends on how you want to design your API.
+
+    * First thing we want to do is call on a method called `req.session.destroy()`.
+
+        * Pass into destroy a callback method that takes an error object.
+
+        * So if there is an error object, it'll be passed to our CB method through here. 
+
+            * If there's an error, send an error message back.
+
+        * Otherwise, send a message that we're logged out.
+
+    * What this does is remove the session from memory/store. Anybody that has a cookie with an ID for that session that sends that ID in, the new session that will be created for that request will not be populated with what that ID represented. What _was_ represented doesn't exist anymore. Instead, a new session will be created and initialized for any request that doesn't have a cookie or has an invalid cookie. The response will contain the new session's ID in a cookie back to the browser.
+
+    * Test in Insomnia
+
+        * Hit the login request first
+
+        * Then get the list of users
+
+        * Create new get request to logout `GET http://localhost:5000/api/auth/logout`. The response should show we're logged out. 
+
+        * Try to get the list of users again. The response should say we're not logged in because of the `restrict` global middleware on the auth-router. Remember, it is checking for the existence of the session object and the user object on that session.
+
+
+    ```
+    // auth-router.js
+
+    router.get("/logout" (req, res) => {
+        req.session.destroy((err) => {
+            if (err) {
+                res.send("Unable to logout.")
+            } else {
+                res.send("Logged out.")
+            }
+        })
+    })
+
+    ```
+
+15. 
