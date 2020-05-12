@@ -2,17 +2,17 @@
 // const bcrypt = require("bcryptjs")
 // const Users = require("../users/users-model")
 
-
+// MADE IT GLOBAL ON INDEX FILE
 // Sean Kirby's Version
-module.exports = (req, res, next) => {
-	if (req.session && req.session.user) {
-		next()
-	} else {
-		res.status(401).json({
-			message: "Not logged in."
-		})
-	}
-}
+// module.exports = (req, res, next) => {
+// 	if (req.session && req.session.user) {
+// 		next()
+// 	} else {
+// 		res.status(401).json({
+// 			message: "Not logged in."
+// 		})
+// 	}
+// }
 
 // JASON'S VERSION
 // function restrict() {

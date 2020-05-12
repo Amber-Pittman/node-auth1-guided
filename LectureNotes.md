@@ -438,121 +438,121 @@ In the middleware folder, there is a restrict file. It validates the user and pa
         }
         ```
 
-    * What we want to do at this point in our login method, we want to do something that will allow us to remember/keep track of this user's loggedIn state. There will already be a session object because we're already adding it to every single request that comes through (by using the sessionConfig object in our global middleware). 
-        
-        * We can a user property to the request session and assign the username to it. 
+13. Login Sessions - What we want to do at this point in our login method, we want to do something that will allow us to remember/keep track of this user's loggedIn state. There will already be a session object because we're already adding it to every single request that comes through (by using the sessionConfig object in our global middleware). 
+    
+    * We can a user property to the request session and assign the username to it. 
 
-        * We can use whatever we want here on the session object, but we're choosing the username.
+    * We can use whatever we want here on the session object, but we're choosing the username.
 
-        * It will be saved to the store as we create it using JSON.
+    * It will be saved to the store as we create it using JSON.
 
-        * All we need is something to indicate that we were in this part of code inside the login endpoint and we got past the comparison test.
+    * All we need is something to indicate that we were in this part of code inside the login endpoint and we got past the comparison test.
 
-            * The user existed in the database so now we can use this `req.session.user` object here.
+        * The user existed in the database so now we can use this `req.session.user` object here.
 
-            * Whereas, if it fails, we don't do anything in the else statement.
+        * Whereas, if it fails, we don't do anything in the else statement.
 
-            * By adding this to the session object when it saved to the database, the next time a request comes in, the ID of this session will be populated from the database (or memory, depending on where the store is). The express-session middleware will look the session data up and then populate the `req.session.user` object on the request object. This will include our custom data that we added.
+        * By adding this to the session object when it saved to the database, the next time a request comes in, the ID of this session will be populated from the database (or memory, depending on where the store is). The express-session middleware will look the session data up and then populate the `req.session.user` object on the request object. This will include our custom data that we added.
 
-            * That means that now, when every other request comes in, we have the option of checking for that.
+        * That means that now, when every other request comes in, we have the option of checking for that.
 
-        ```
-        // auth-router.js
+    ```
+    // auth-router.js
 
-        router.post("/login", (req, res) => {
-            const {username, password} = req.body
+    router.post("/login", (req, res) => {
+        const {username, password} = req.body
 
-            Users.findBy({username})        //lookup in the database
-                // Make comparison between PW guess and actual PW
-                .then(([user]) => {
-                    if (user && bcrypt.compareSync(password, user.password)) {
-                        req.session.user = username
-                        res.status(200).json({
-                            message: "Welcome!"
-                        })
-                    } else {
-                        res.status(401).json({
-                            message: "Invalid credentials"
-                        })
-                    }
-                }) 
-                .catch(err => {
-                    res.status(500).json({
-                        message: "problem with the db", error: err
+        Users.findBy({username})        //lookup in the database
+            // Make comparison between PW guess and actual PW
+            .then(([user]) => {
+                if (user && bcrypt.compareSync(password, user.password)) {
+                    req.session.user = username
+                    res.status(200).json({
+                        message: "Welcome!"
                     })
+                } else {
+                    res.status(401).json({
+                        message: "Invalid credentials"
+                    })
+                }
+            }) 
+            .catch(err => {
+                res.status(500).json({
+                    message: "problem with the db", error: err
                 })
-        })
-        ```
+            })
+    })
+    ```
 
-        * As an example of checking for the user session, go to the users-router file. 
+    * As an example of checking for the user session, go to the users-router file. 
 
-            * Check to see if the session object exists and then check to see if the user has been populated
+        * Check to see if the session object exists and then check to see if the user has been populated
 
-            * If they aren't, we can send a res status of 401 and a message to the user that they are not logged in
+        * If they aren't, we can send a res status of 401 and a message to the user that they are not logged in
 
-            * Test the users-router endpoint in Insomnia `GET http://localhost:5000/api/users/`
+        * Test the users-router endpoint in Insomnia `GET http://localhost:5000/api/users/`
 
-            * Before, you could see an ID and a username. But now, you'll see a "Not logged in" message. 
+        * Before, you could see an ID and a username. But now, you'll see a "Not logged in" message. 
 
-                * This is because when you send your request message out, the request did not have the cookie header that was needed.
+            * This is because when you send your request message out, the request did not have the cookie header that was needed.
 
-                * We have the cookie header now. If you look in the preview section, under Cookies, you'll see the chocolate-chip cookie name with an encrypted value.
+            * We have the cookie header now. If you look in the preview section, under Cookies, you'll see the chocolate-chip cookie name with an encrypted value.
 
-                * The middleware when we did the response took the session that it created for the request, saved it to memory, and then returned to the session ID. 
-                
-                * That is not enough to get the session ID to work. It's not enough because when we make a request, we're sending in the cookie value, the server on our side is looking up the session that matches this encrypted ID and is finding a session. BUT!!! That session does not have `.user` on it because from that client (an application - in our case, Insomnia), we have not gone through the `req.session.user = username` code in our login endpoint found in the auth-router.
+            * The middleware when we did the response took the session that it created for the request, saved it to memory, and then returned to the session ID. 
+            
+            * That is not enough to get the session ID to work. It's not enough because when we make a request, we're sending in the cookie value, the server on our side is looking up the session that matches this encrypted ID and is finding a session. BUT!!! That session does not have `.user` on it because from that client (an application - in our case, Insomnia), we have not gone through the `req.session.user = username` code in our login endpoint found in the auth-router.
 
-                * In order for that to work, go back into Insomnia and login with a valid username and password. You'll see the expected welcome message. It has gone through the necessary part of the code, meaning our session object now has a user object with a username value in it. The server gave back to us a cookie value that contains this session.
+            * In order for that to work, go back into Insomnia and login with a valid username and password. You'll see the expected welcome message. It has gone through the necessary part of the code, meaning our session object now has a user object with a username value in it. The server gave back to us a cookie value that contains this session.
 
-                * While still in the login endpoint, review the Cookies tab in the Preview section. You will now see the chocolate-chip cookie with an encrypted value.
+            * While still in the login endpoint, review the Cookies tab in the Preview section. You will now see the chocolate-chip cookie with an encrypted value.
 
-                * Try testing the users endpoint again. In the Headers, you will now see a required cookie in it. Then look inside your Preview section and you'll see the cookie again. If it matches up, you can run the request over and over and over again until the cookie expires. Then you'll have to login again.
+            * Try testing the users endpoint again. In the Headers, you will now see a required cookie in it. Then look inside your Preview section and you'll see the cookie again. If it matches up, you can run the request over and over and over again until the cookie expires. Then you'll have to login again.
 
-        ```
-        // users-router.js
+    ```
+    // users-router.js
 
-        router.get("/", async (req, res, next) => {
-            if (req.session && req.session.user) {
-            Users.find()
-                .then(users => {
-                    res.json(users)
-                })
-                .catch(error => res.send(error))
-            } else {
-                res.status(401).json({
-                    message: "Not logged in."
-                })
-            }
-        })
+    router.get("/", async (req, res, next) => {
+        if (req.session && req.session.user) {
+        Users.find()
+            .then(users => {
+                res.json(users)
+            })
+            .catch(error => res.send(error))
+        } else {
+            res.status(401).json({
+                message: "Not logged in."
+            })
+        }
+    })
 
-        module.exports = router
-        ```
+    module.exports = router
+    ```
 
-        * So far, we've added this check but it hasn't been done in a DRY fashion. We can already see what's going to start to happen as our endpoints grow and we have other routers with endpoints that needs to be secured. Not everything needs this; you shouldn't have to be logged in to be logged in, right? Or registered, for that matter.
+    * So far, we've added this check but it hasn't been done in a DRY fashion. We can already see what's going to start to happen as our endpoints grow and we have other routers with endpoints that needs to be secured. Not everything needs this; you shouldn't have to be logged in to be logged in, right? Or registered, for that matter.
 
-            * Let's apply the same logic to everything that needs to be secured by extracting this logic into some middleware and put in a new folder called middleware. We can call the file `restrict.js`.
+        * Let's apply the same logic to everything that needs to be secured by extracting this logic into some middleware and put in a new folder called middleware. We can call the file `restrict.js`.
 
-            * Export a piece of middleware function that's compatible with Express (meaning, it receives a req, a response object, and a next method). We can then call this middleware function to allow processing to continue.
+        * Export a piece of middleware function that's compatible with Express (meaning, it receives a req, a response object, and a next method). We can then call this middleware function to allow processing to continue.
 
-                * Check to see if the session object exists and that there is a user object exists on that session.
+            * Check to see if the session object exists and that there is a user object exists on that session.
 
-                    * If so, we're going to go ahead and call next().
+                * If so, we're going to go ahead and call next().
 
-                    * If not, then we can do what we're doing on the users endpoint with a 401 message.
+                * If not, then we can do what we're doing on the users endpoint with a 401 message.
 
-                    * That's really all that's needed here.
+                * That's really all that's needed here.
 
-            * Now, get rid of the redundant logic in the users router and add the restricted middleware directly inside the router.get call. 
-                
-                * Don't forget to import it into the users-router file. 
+        * Now, get rid of the redundant logic in the users router and add the restricted middleware directly inside the router.get call. 
+            
+            * Don't forget to import it into the users-router file. 
 
-                * Then add `restrict` just before the homies.
+            * Then add `restrict` just before the homies.
 
-                * After that, everything is just processed in order.
+            * After that, everything is just processed in order.
 
-                * Validate that it's still working. You'll probably get a message saying you're not logged in because you saved your file while the server is running so it restarted it completely over. When the server restarted, all of its memory was lost, including all the sessions that were in memory (_which is why we would be interested in storing sessions in a database_).
+            * Validate that it's still working. You'll probably get a message saying you're not logged in because you saved your file while the server is running so it restarted it completely over. When the server restarted, all of its memory was lost, including all the sessions that were in memory (_which is why we would be interested in storing sessions in a database_).
 
-                * Running everything again produces a new cookie ID (as expected) and then you'll get your list of users again. 
+            * Running everything again produces a new cookie ID (as expected) and then you'll get your list of users again. 
 
         ```
         // restrict.js
@@ -569,6 +569,7 @@ In the middleware folder, there is a restrict file. It validates the user and pa
 
 
         // users-router
+
         router.get("/", restrict, (req, res, next) => {
             Users.find()
                 .then(users => {
@@ -580,3 +581,29 @@ In the middleware folder, there is a restrict file. It validates the user and pa
 
         module.exports = router
         ```
+
+        * We could take this one step further and make it global.
+
+            * In index.js, we could use `server.use()` and add it in there. Then make it global so that it applies to everything.
+
+            * You'll notice our authentication methods are not impacted because we don't have it in there.
+
+            ```
+            // index.js
+            
+            // Make the Restrict Middleware Global
+            server.use((req, res, next) => {
+                if (req.session && req.session.user) {
+                    next()
+                } else {
+                    res.status(401).json({
+                        message: "Not logged in."
+                    })
+                }
+            })
+            ```
+
+14. Logout Sessions
+```
+Video at 1:39:34
+```
