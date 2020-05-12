@@ -643,4 +643,83 @@ In the middleware folder, there is a restrict file. It validates the user and pa
 
     ```
 
-15. 
+15. How to Get Sessions Stored in the Database
+
+    * Install `connect-session-knex`. This is a module that will allow us to use the knex session module together with knex. 
+
+    * We already have a database set up, so we just need to add a little data to the sessionConfig object called `store`.
+
+    * Import the connect-session-knex package. 
+
+        * What we get back from that is a method that we'll pass our session object into from express-session.
+
+        * We can do this in 2 steps but we're just compressing it into 1. 
+
+        * Where the method that comes back from require takes a session object from express-session and just passing it in on the end of the connect-session-knex require method.
+
+    * In our store object inside sessionConfig, we're going to create a new object from knexSessionStore that we got from our export. 
+
+        * Pass in a configuration object. Since we're using knex, we actually want to bring in our database configuration. 
+
+        * In our database, we're going to tell it which table contains our session data. The table name is arbitrary so we're going to keep it simple by calling it "sessions."
+
+        * Tell it what the name of the column is in that table that will contain the session IDs. 
+
+        * There's a parameter that allows us to create the table if it doesn't already exist. Set it to true.
+
+        * There's a property called clearInterval which will specify how often expired sessions should be removed from the database. We could set it for once an hour. 
+
+    * Our store is a result of a call to knexSessionStore method where we pass this configuration object where we tell it how to connect to our database, which table and field name we tell it to store session IDs in, whether or not to create a table, and how often to clean it up.
+
+    * Instead of accessing this data from memory, it's going to be accessing it from the database.
+
+    * Test in Insomnia
+
+        * Login
+
+        * Get Users
+
+        * Now stop your server
+
+        * Go to DB Browser and look in the auth.db3 file
+
+            * Check out the sessions table
+
+            * It has 1 sessions object that exists in it
+
+        * When we look at the session ID, it doesn't look anything like what we have in our cookie. 
+
+            * The cookie is encrypted, so when it's received, it's going to be decrypted and turned into the session ID you see in the DB Browser. The lookup will happen in `sess` in DBB. You can see the data the session object includes like `secure` and `httpOnly`, etc. It's not just the data we added about the cookie but also our custom data that we added.
+
+            * Remember, what we add to our session information needs to be relatively harmless because if this database is exposed/compromised, we don't want to put the entire user object in it because that will include our password hash.
+
+        * Try getting users again. It should return the list without requiring you to login again. It works because the cookie we're sending in is a valid cookie on a valid session that indicates that I've already logged in.
+
+    ```
+    // index.js
+
+    const knexSessionStore = require("connect-session-knex")(session)
+
+    const sessionConfig = {
+        name: "chocolate-chip",
+        secret: "myspeshulsecret",
+        cookie: {
+            maxAge: 3600 * 1000,
+            secure: false,  // set to TRUE in production; false in development
+            httpOnly: true,
+        },
+        resave: false,
+        saveUninitialized: false,
+        store: new knexSessionStore(
+            {
+                knex: require("../database/config.js"),
+                tableName: "sessions",
+                sidfieldname: "sid",
+                createTable: true,
+                clearInterval: 3600 * 1000
+            }
+        )
+    }
+    ```
+
+## DONE!

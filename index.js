@@ -3,6 +3,7 @@ const helmet = require("helmet")
 const cors = require("cors")
 const session = require("express-session")
 const restrict = require("./middleware/restrict")
+const knexSessionStore = require("connect-session-knex")(session)
 
 const authRouter = require("./auth/auth-router")
 const usersRouter = require("./users/users-router")
@@ -21,6 +22,15 @@ const sessionConfig = {
 	},
 	resave: false,
 	saveUninitialized: false,
+	store: new knexSessionStore(
+		{
+			knex: require("../database/config.js"),
+			tableName: "sessions",
+			sidfieldname: "sid",
+			createTable: true,
+			clearInterval: 3600 * 1000
+		}
+	)
 }
 
 // Global middleware
