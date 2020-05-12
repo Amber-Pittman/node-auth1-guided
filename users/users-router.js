@@ -1,11 +1,12 @@
-const express = require("express")
+//const express = require("express")
+//const router = express.Router()
 const Users = require("./users-model")
 const restrict = require("../middleware/restrict")
 
-const router = express.Router()
+const router = require("express").Router()
 
 // Sean Kirby's version
-router.get("/", async (req, res, next) => {
+router.get("/", restrict, (req, res, next) => {
 	Users.find()
 		.then(users => {
 			res.json(users)
