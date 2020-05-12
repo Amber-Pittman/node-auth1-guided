@@ -2,6 +2,8 @@ const express = require("express")
 const helmet = require("helmet")
 const cors = require("cors")
 const session = require("express-session")
+const restrict = require("./middleware/restrict")
+const knexSessionStore = require("connect-session-knex")(session)
 
 const authRouter = require("./auth/auth-router")
 const usersRouter = require("./users/users-router")
@@ -20,6 +22,15 @@ const sessionConfig = {
 	},
 	resave: false,
 	saveUninitialized: false,
+	store: new knexSessionStore(
+		{
+			knex: require("../database/config.js"),
+			tableName: "sessions",
+			sidfieldname: "sid",
+			createTable: true,
+			clearInterval: 3600 * 1000
+		}
+	)
 }
 
 // Global middleware
@@ -29,23 +40,12 @@ server.use(express.json())
 server.use(session(sessionConfig))
 
 server.use("/auth", authRouter)
-server.use("/users", usersRouter)
+server.use("/users", restrict, usersRouter)
 
 server.get("/", (req, res, next) => {
 	res.json({
 		message: "Welcome to our API",
 	})
-})
-
-// Make the Restrict Middleware Global
-server.use((req, res, next) => {
-	if (req.session && req.session.user) {
-		next()
-	} else {
-		res.status(401).json({
-			message: "Not logged in."
-		})
-	}
 })
 
 server.use((err, req, res, next) => {

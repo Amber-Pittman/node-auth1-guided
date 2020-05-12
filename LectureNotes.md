@@ -591,19 +591,135 @@ In the middleware folder, there is a restrict file. It validates the user and pa
             ```
             // index.js
             
-            // Make the Restrict Middleware Global
-            server.use((req, res, next) => {
-                if (req.session && req.session.user) {
-                    next()
-                } else {
-                    res.status(401).json({
-                        message: "Not logged in."
-                    })
-                }
-            })
+            const restrict = require("./middleware/restrict")
+
+            server.use("/users", restrict, usersRouter)
+            
             ```
 
 14. Logout Sessions
-```
-Video at 1:39:34
-```
+    
+    * One of the things you want to be aware of when logging out is the HTTP method DELETE. It's often used for logging out because delete is used for removing a session. It is totally acceptable to do that. 
+    
+    * Essentially, we don't have to pass anything in to logout we just need to pass along the cookie. That way, the system knows what session we're using to logging out of.
+
+    * We're going to use GET, as it doesn't really matter. In some instances, you're going to have multiple sessions and they have a sessions collection so it might make sense to delete. It really just depends on how you want to design your API.
+
+    * First thing we want to do is call on a method called `req.session.destroy()`.
+
+        * Pass into destroy a callback method that takes an error object.
+
+        * So if there is an error object, it'll be passed to our CB method through here. 
+
+            * If there's an error, send an error message back.
+
+        * Otherwise, send a message that we're logged out.
+
+    * What this does is remove the session from memory/store. Anybody that has a cookie with an ID for that session that sends that ID in, the new session that will be created for that request will not be populated with what that ID represented. What _was_ represented doesn't exist anymore. Instead, a new session will be created and initialized for any request that doesn't have a cookie or has an invalid cookie. The response will contain the new session's ID in a cookie back to the browser.
+
+    * Test in Insomnia
+
+        * Hit the login request first
+
+        * Then get the list of users
+
+        * Create new get request to logout `GET http://localhost:5000/api/auth/logout`. The response should show we're logged out. 
+
+        * Try to get the list of users again. The response should say we're not logged in because of the `restrict` global middleware on the auth-router. Remember, it is checking for the existence of the session object and the user object on that session.
+
+
+    ```
+    // auth-router.js
+
+    router.get("/logout" (req, res) => {
+        req.session.destroy((err) => {
+            if (err) {
+                res.send("Unable to logout.")
+            } else {
+                res.send("Logged out.")
+            }
+        })
+    })
+
+    ```
+
+15. How to Get Sessions Stored in the Database
+
+    * Install `connect-session-knex`. This is a module that will allow us to use the knex session module together with knex. 
+
+    * We already have a database set up, so we just need to add a little data to the sessionConfig object called `store`.
+
+    * Import the connect-session-knex package. 
+
+        * What we get back from that is a method that we'll pass our session object into from express-session.
+
+        * We can do this in 2 steps but we're just compressing it into 1. 
+
+        * Where the method that comes back from require takes a session object from express-session and just passing it in on the end of the connect-session-knex require method.
+
+    * In our store object inside sessionConfig, we're going to create a new object from knexSessionStore that we got from our export. 
+
+        * Pass in a configuration object. Since we're using knex, we actually want to bring in our database configuration. 
+
+        * In our database, we're going to tell it which table contains our session data. The table name is arbitrary so we're going to keep it simple by calling it "sessions."
+
+        * Tell it what the name of the column is in that table that will contain the session IDs. 
+
+        * There's a parameter that allows us to create the table if it doesn't already exist. Set it to true.
+
+        * There's a property called clearInterval which will specify how often expired sessions should be removed from the database. We could set it for once an hour. 
+
+    * Our store is a result of a call to knexSessionStore method where we pass this configuration object where we tell it how to connect to our database, which table and field name we tell it to store session IDs in, whether or not to create a table, and how often to clean it up.
+
+    * Instead of accessing this data from memory, it's going to be accessing it from the database.
+
+    * Test in Insomnia
+
+        * Login
+
+        * Get Users
+
+        * Now stop your server
+
+        * Go to DB Browser and look in the auth.db3 file
+
+            * Check out the sessions table
+
+            * It has 1 sessions object that exists in it
+
+        * When we look at the session ID, it doesn't look anything like what we have in our cookie. 
+
+            * The cookie is encrypted, so when it's received, it's going to be decrypted and turned into the session ID you see in the DB Browser. The lookup will happen in `sess` in DBB. You can see the data the session object includes like `secure` and `httpOnly`, etc. It's not just the data we added about the cookie but also our custom data that we added.
+
+            * Remember, what we add to our session information needs to be relatively harmless because if this database is exposed/compromised, we don't want to put the entire user object in it because that will include our password hash.
+
+        * Try getting users again. It should return the list without requiring you to login again. It works because the cookie we're sending in is a valid cookie on a valid session that indicates that I've already logged in.
+
+    ```
+    // index.js
+
+    const knexSessionStore = require("connect-session-knex")(session)
+
+    const sessionConfig = {
+        name: "chocolate-chip",
+        secret: "myspeshulsecret",
+        cookie: {
+            maxAge: 3600 * 1000,
+            secure: false,  // set to TRUE in production; false in development
+            httpOnly: true,
+        },
+        resave: false,
+        saveUninitialized: false,
+        store: new knexSessionStore(
+            {
+                knex: require("../database/config.js"),
+                tableName: "sessions",
+                sidfieldname: "sid",
+                createTable: true,
+                clearInterval: 3600 * 1000
+            }
+        )
+    }
+    ```
+
+## DONE!
