@@ -38,17 +38,6 @@ server.get("/", (req, res, next) => {
 	})
 })
 
-// Make the Restrict Middleware Global
-server.use((req, res, next) => {
-	if (req.session && req.session.user) {
-		next()
-	} else {
-		res.status(401).json({
-			message: "Not logged in."
-		})
-	}
-})
-
 server.use((err, req, res, next) => {
 	console.log(err)
 	res.status(500).json({
