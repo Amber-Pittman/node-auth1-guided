@@ -352,4 +352,83 @@ In the middleware folder, there is a restrict file. It validates the user and pa
 
     * We can protect this endpoint by using login state.
 
-    * What we could do in the auth-router is when a user successfully logs in, we could make the request object
+    * What we could do in the auth-router is when a user successfully logs in, we could make the request object (the `[user]`) that has a property called loggedIn and set it to true. 
+
+        * But the problem with that is we're going to respond and then the next request that comes in will not have this property. And if that next request is routed to the users-router where we try to do a search for the loggedIn property before doing the all the things or return an error, that request is not going to have that logged in value. 
+
+    * We need to come up with a different method. When we log in, we store that logged in information and have our application send it on behalf of the user without having the user log in every time. This is where Sessions come into play.
+
+    * **_Session_** - something in the server's memory that keeps track of what users are in a logged in state. Sessions can be used to track other information about users. It can be very complex. 
+
+        * When we store that information in a server, we have a server that is considered to be "stateful." Meaning, the server is keeping track of state for an individual user. 
+        
+        * That's not necessarily inappropriate architecture, but when it comes to **scalability** - if you intend for your app to scale very large - that could be a problem because a typical method for scaling web apps (in particular) is to make them horizontally scalable. 
+
+        * Horizontal Scaling - to increase capacity, you just spin up new servers. The servers themselves don't necessarily have to be powerful because you can have many of them. Because they could be virtualized, they can be instantiated and spun up very quickly as well as be spun back down - AKA elasticity. You can grow and shrink your servers to meet demand at the moment.
+
+        * One of the key things that makes that work is called a _load balancer_. When the request comes in, the load balancer determines which server to send the request to. 
+            
+            * If the loggedIn state of the user happens to be in Server #3 but the load balancer sends the next request to Server #38, Server #38 does not have that state in its memory. You'd have to get complicated in storing session information in a database that's essentially shared. That can be done as well, but then there's another whole level of scalability that you have to be concerned about when it comes to that. 
+
+        * Creating Stateless Applications is an answer to that, where you can have truly scalable applications that don't have to worry about the complexities of state management on the backend.
+
+            * Again, being stateful is not necessarily a bad thing. It's a very simple way to get up and running quickly. For many applications, it's totally acceptable and it's a good tradeoff for a lot of the complexity you would have otherwise. 
+
+        * In our case, our application is stateful, so we need a way to store the loggedIn state of the user locally. Then we'll want to send a token back to the application that the app can then use to indicate that the user is already logged in again. Then it will authenticate what the user has the right (or privileges) to do within the app. 
+
+    * We're going to use a session management package/module called `express-session`. In order to use it, in our server.js file, we want to import/require it and then use it as part of our global middleware stack. 
+
+        * Since session itself is a method that takes a configuration object, we need to create a config object
+
+        * Just above the global middleware section, create the sessionConfig object.
+
+        * In [Express-Session's documentation](https://www.npmjs.com/package/express-session#api), you can see there are different options that can be passed in. For example, there's a cookie option. We could specify different properties of the cookie that basically gives us control of what the browser does in both creating and providing access to the cookie. 
+
+            * `secret` is what we use to secure/encrypt the cookie. It is a _required option_. Even though it can be seen, it can't really be understood. 
+
+        * Give the cookie a name. 
+        
+        * Specify a secret. In this lecture, we're hard coding it in but you actually want to have the secret coming from elsewhere. You also want it to have a larger charset.
+
+        * Inside the sessionConfig object, we have a cookie object. Here, we can specify values about the cookie itself. 
+            
+            * For example, how long a cookie should last before it's considered expired (maxAge). This will be in milliseconds so if we wanted it to last an hour, we'd need 3600 milliseconds. Multiply 3600 by 1000 milliseconds.
+
+            * We can specify whether a cookie can only be used by secure connections (http) or all. 
+
+            * From our server's perspective, we can control if we even accept HTTP requests. Right now we are accepting them, because we don't support HTTPS in our application, as that would require minting a certificate and configuring it and a bit more involved than what we want to do here. It's not difficult but it is involved.
+
+                * The secure property should be set to true in production. However, it is fine as false during development. 
+
+            * We should also have `httpOnly` as this tells the browser to not provide access to the cookie from a JavaScript application running in the browser's memory. It forces the browser to only provide access to the server that created this cookie over HTTP, rather than allowing a JS application to have access to it.  
+
+        * We also need to set the resave option. When it comes to storing information in databases, this is a good one to keep false.
+
+        * For GDPR purposes, you need to provide the option of `saveUninitialized`. Basically, what it's telling the browser is whether or not it can save a cookie before a user has given their permission. European laws require all countries to get their users permission before saving cookies.
+
+    * Now that we have the sessionConfig object, we are going to pass into the session object, which we get from express-session. Because the session object is global on the `.use` method, it's applying it to every single request - no matter what the HTTP method is nor what the path is. 
+
+        * The HTTP request is going to go through this session middleware, which will add a session object to the request object that will contain information about the session.
+
+        * When information comes in, either that session object is going to be populated with actual session information (assuming the user passed a cookie in with a valid ID) or it will be a brand new session object that does not have valid session information in it until we populate it.
+
+        * The only thing that comes back is the session identifier. It's encrypted in the cookie contents and is only accessible by the server that created it.
+
+    * 
+
+        ```
+        // index.js
+
+        const sessionConfig = {
+            name: "chocolate-chip",
+            secret: "myspeshulsecret",
+            cookie: {
+                maxAge: 3600 * 1000,
+                secure: false,  // set to TRUE in production; false in development
+                httpOnly: true,
+            },
+            resave: false,
+            saveUninitialized: false,
+        }
+        ```
+

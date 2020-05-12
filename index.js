@@ -1,15 +1,32 @@
 const express = require("express")
 const helmet = require("helmet")
 const cors = require("cors")
+const session = require("express-session")
+
 const authRouter = require("./auth/auth-router")
 const usersRouter = require("./users/users-router")
 
 const server = express()
 const port = process.env.PORT || 5000
 
+// Session Config Object
+const sessionConfig = {
+	name: "chocolate-chip",
+	secret: "myspeshulsecret",
+	cookie: {
+		maxAge: 3600 * 1000,
+		secure: false,  // set to TRUE in production; false in development
+		httpOnly: true,
+	},
+	resave: false,
+	saveUninitialized: false,
+}
+
+// Global middleware
 server.use(cors())
 server.use(helmet())
 server.use(express.json())
+server.use(session(sessionConfig))
 
 server.use("/auth", authRouter)
 server.use("/users", usersRouter)

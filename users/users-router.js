@@ -4,12 +4,26 @@ const restrict = require("../middleware/restrict")
 
 const router = express.Router()
 
+// Sean Kirby's version
 router.get("/", async (req, res, next) => {
-	try {
-		res.json(await Users.find())
-	} catch(err) {
-		next(err)
+	Users.find()
+		.then(users => {
+			res.json(users)
+		})
+		.catch(error => res.send(error))
 	}
-})
+)
 
 module.exports = router
+
+
+// JASON's version
+// router.get("/", async (req, res, next) => {
+// 	try {
+// 		res.json(await Users.find())
+// 	} catch(err) {
+// 		next(err)
+// 	}
+// })
+
+// module.exports = router
