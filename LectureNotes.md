@@ -185,13 +185,25 @@ In the middleware folder, there is a restrict file. It validates the user and pa
 
     * It shows:
 
-        * Our version
+        * Our version (Blowfish based)
 
         * The cost parameter
 
         * The salt (we'll discuss what this is later)
 
         * And the hash itself
+
+    * You can read about ["Versioning History"](https://en.wikipedia.org/wiki/Bcrypt#Versioning_history) to understand the hash strings better. We are using the "Blowfish-based" encryption.
+
+    * Even though there's all that information in the hash string, it's still good to have it. It prevents hackers from doing a rainbow lookup as the hash string isn't going to match any passwords unless they used the exact same salt, with the exact same version, with the exact same cost. There are _a lot_ of parameters they have to go through.
+
+    * **_Salt_** is a value that is added to the password before the hash is generated. You can provide your own salt value using Bcrypt or you can let Bcrypt generate a randomized salt that is different every single time you call the hash or the hashSync method. When it comes to Bcrypt, the salt is automatically built right in there.
+
+    * You can use the [Bcrypt Generator](https://bcrypt-generator.com/).
+
+        * Using this generator, you could use the same exact password and the same number or rounds and get a completely different hash at the end of the generated string. 
+
+        * This happens because there's an entirely different salt that is used. 
 
 10. Recap:
 
@@ -234,11 +246,36 @@ In the middleware folder, there is a restrict file. It validates the user and pa
 
     * We're going to get the username and password from the body.
 
-    * We're going to use the username to do a data lookup in the database to see if that username exists. Pass in an object that contains the username property (it will be converted into a WHERE clause). If it does exist, we get the hash. 
+    * We're going to use the username to do a _lookup in the database_ to see if that username exists. Pass in an object that contains the username property (it will be converted into a WHERE clause). If it does exist, we get the hash. 
 
         * The .findBy method returns an array, as there could be more than one thing that matches our criteria. In our case, we only care about one. If there is more than one then that's a problem in our database; we'll need to add a constraint that says the username is unique and we'll need to look at cleaning that up.
 
         * We'll assume for now that the user is found, then it's going to come back as the only element in an array. 
+
+        * Regarding `Users.findBy({username})`, as a feature of Knex, you can pass in an object with curly brackets. It sort of acts as a reversed destructuring. When Knex receives the long-form object, it makes it a where statement with whatever the value of username is. 
+
+        ```
+        // Long Form 
+
+        const queryObject = {
+            username: username
+        }
+
+        Users.findBy(queryObject) {...}
+
+        // Short Form
+        
+        {username}
+
+        // BONUS: Knex's Translation
+        
+        const queryObject = {
+            username: username
+        }
+
+        where username = "//whatever the value of username is//"
+ 
+        ```
 
     * We will destructure that array to get that object into a variable for us. 
 
@@ -248,13 +285,35 @@ In the middleware folder, there is a restrict file. It validates the user and pa
 
         * What we're going to pass into compareSync is the password guess that the user sends us with the body and then the password value that comes from our database.
 
-        ```
-        Pick up video play at 43:09 to continue!!!
-        ```
+        * Really, if we were to go back in and recreate our database, we might change that password to hash. What's being brought back in the `[user]` object when we do a query in the database is an object with a username and a password (but the password value is really a hash that we saved earlier). 
+
+            * `([user])` is a destructured JavaScript array. When you do this syntax, you can put 1+ variables are comma delimited in here. Whatever is in the array will be assigned to the variables in the array in order. The first value will be assigned to the first variable and the second value will be assigned to the second variable. 
+
+            * Reminder, this is just part of JavaScript. Nothing exclusive to bcryptjs. 
+
+            * Without the parens around the square brackets, JavaScript becomes confused.
+
+            ```
+            // Example
+
+            .then(([userVariable, anotherVariable]) => {...})
+            ```
+
+        * This `bcrypt.compareSync(...)` will compare the "guessed" password against the password we have in our database.
 
     * Then, we're going to use that password and that hash to confirm whether or not the password guess is the same as the original password. 
 
-    * 
+    * If that succeeds, we can return a success HTTP code to the login requestor.
+
+    * Else, if the passwords don't match, we can assume the user doesn't exist or the password was wrong. We will return a 401 error status to the requestor. 
+
+    * Now that the login endpoint was made for a new user, test it in Insomnia. `POST http://localhost:5000/api/auth/login` and create a JSON body with a username and password.
+        
+        * Type in your correct password, and you should get the welcome message.
+
+        * Otherwise, you'll get your 401 message. 
+
+        * Same is true for your username.
 
     ```
     // auth-router.js
@@ -265,7 +324,15 @@ In the middleware folder, there is a restrict file. It validates the user and pa
         Users.findBy({username})        //lookup in the database
             // Make comparison between PW guess and actual PW
             .then(([user]) => {
-                if (user && bcrypt.compareSync(password, user.password))
+                if (user && bcrypt.compareSync(password, user.password)) {
+                    res.status(200).json({
+                        message: "Welcome!"
+                    })
+                } else {
+                    res.status(401).json({
+                        message: "Invalid credentials"
+                    })
+                }
             }) 
             .catch(err => {
                 res.status(500).json({
@@ -277,6 +344,12 @@ In the middleware folder, there is a restrict file. It validates the user and pa
     module.exports = router
     ```
 
+12. Sessions and Cookies
 
+    * We want to be able to not force the user to have to authenticate every time they've made a request. 
 
-Now, if we look at our method for retrieving users (look in the users-router), there's nothing in the get request that cares about whether or not the user is authenticated or logged in.
+    * Now, if we look at our method for retrieving users (look in the users-router), there's nothing in the get request that cares about whether or not the user is authenticated or logged in. We're _not_ currently secure. **_NOTHING_** is secure at this point. Our 1 method in the users-router is entirely unprotected, allowing anyone to retrieve our users list with their real passwords. 
+
+    * We can protect this endpoint by using login state.
+
+    * What we could do in the auth-router is when a user successfully logs in, we could make the request object
